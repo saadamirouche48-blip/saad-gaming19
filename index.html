@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAAD GAMING</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#39ff88">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 
 <style>
 * { box-sizing: border-box; }
@@ -141,6 +146,7 @@ footer {
   <button data-filter="short">📱 فيديوهات قصيرة</button>
   <button data-filter="long">🎬 فيديوهات طويلة</button>
   <button id="goUpload" hidden>➕ أضف فيديو</button>
+  <button id="installBtn" hidden>📲 ثبّت التطبيق</button>
 </nav>
 
 <main>
@@ -257,7 +263,7 @@ function filterVideos() {
 async function loadVideos() {
   try {
     const res = await fetch(
-      SUPABASE_URL + "/rest/v1/videos?select=*&order=created_at.desc",
+      SUPABASE_URL + "/rest/v1/site_videos?select=*&order=created_at.desc",
       { headers: { apikey: SUPABASE_KEY } }
     );
     if (!res.ok) throw new Error(await res.text());
@@ -326,7 +332,7 @@ publishBtn.addEventListener("click", async () => {
 
     const publicUrl = SUPABASE_URL + "/storage/v1/object/public/" + BUCKET + "/" + path;
 
-    const ins = await fetch(SUPABASE_URL + "/rest/v1/videos", {
+    const ins = await fetch(SUPABASE_URL + "/rest/v1/site_videos", {
       method: "POST",
       headers: {
         apikey: SUPABASE_KEY,
@@ -350,7 +356,9 @@ publishBtn.addEventListener("click", async () => {
     console.error(err);
     message.textContent = err.message === "login"
       ? "انتهت الجلسة، سجّل الدخول من جديد."
-      : "فشل الرفع ❌ تأكد من حجم الفيديو والإنترنت.";
+      : "فشل الرفع ❌ السبب: " + String(err.message).slice(0, 250);
+    message.style.whiteSpace = "pre-wrap";
+    message.style.direction = "ltr";
   } finally {
     publishBtn.disabled = false;
   }
@@ -430,6 +438,28 @@ document.getElementById("logout").addEventListener("click", () => {
   clearSession();
   showOwner(false);
 });
+
+// ===== تثبيت التطبيق =====
+let deferredPrompt = null;
+const installBtn = document.getElementById("installBtn");
+
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.hidden = false;
+});
+
+installBtn.addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBtn.hidden = true;
+});
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
 
 showOwner(!!readSession());
 loadVideos();
